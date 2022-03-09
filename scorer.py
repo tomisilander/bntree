@@ -3,7 +3,7 @@ from functools import lru_cache
 
 class Scorer():
 
-    def __init__(self, valcounts, data, score_fn='BIC', **kwargs):
+    def __init__(self, valcounts, data, score='BIC', **kwargs):
         self.valcounts = np.array(valcounts)
         self.data = np.array(data, dtype=int)
         self.rows, self.row_counts = np.unique(self.data, axis=0, return_counts=True)
@@ -19,8 +19,13 @@ class Scorer():
         self.xic_penalty = {'B': lambda k: 0.5*k*logN,
                             'A': lambda k: k,
                             'H': lambda k: k*loglogN}
+        
+        self.score_fns = {  'BIC': self.BIC,
+                            'AIC': self.AIC,
+                            'HIC': self.HIC
+                        }
 
-        self.score_fn = self.BIC  # change later
+        self.score_fn = self.score_fns[score]
 
     def marginalize_counts(self, rows, row_counts):
         marg_rows, marg_row_start_ixs = np.unique(rows, axis=0, return_index=True)
