@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-from ipaddress import v4_int_to_packed
-
-
 def no_comments(filename):
     for l in open(filename):
         sl = l.strip()

@@ -1,5 +1,7 @@
 import numpy as np
 from functools import lru_cache
+from scipy.special import entr
+
 
 class Scorer():
 
@@ -27,28 +29,20 @@ class Scorer():
 
         self.score_fn = self.score_fns[score]
 
-    def marginalize_counts(self, rows, row_counts):
-        marg_rows, marg_row_start_ixs = np.unique(rows, axis=0, return_index=True)
-
-        row_counts_cumsums = np.cumsum(row_counts)
-        # now, selecting correct positions from cumsum
-        # and the diffing them gives the counts of marg_rows
-        last_poss = marg_row_start_ixs[1:] - 1
-        last_cumsum = row_counts_cumsums[-1]
-        marg_row_counts = np.diff(row_counts_cumsums[last_poss], prepend=0, append=last_cumsum)
-        return marg_rows, marg_row_counts
-
     def get_counts(self, child, parents):
-        parents = list(parents)
-        family  = parents + [child]
-        families, child_freqs  = np.unique(self.data[:, family], axis=0, return_counts=True)
-        _, parent_freqs = self.marginalize_counts(families[:,:len(parents)], child_freqs)                                             
-        return child_freqs, parent_freqs
+        family  = list(parents) + [child]
+        valcs = [self.valcounts[v] for v in family]
+        family_rows = self.rows[:,family]
+        counts = np.zeros(valcs, dtype=int)
+        for ix, c in zip(map(tuple, family_rows), self.row_counts):
+            counts[ix] += c
+        parent_freqs = counts.sum(axis=-1)                                           
+        return counts, parent_freqs
         
     def log_ml(self, child, parents, **kwargs):
         child_freqs, parent_freqs = self.get_counts(child, parents)
-        res = np.sum(child_freqs * np.log(child_freqs))  
-        res -= np.sum(parent_freqs * np.log(parent_freqs))
+        res = -np.sum(entr(child_freqs))  # NB! entr is -nlogn  
+        res += np.sum(entr(parent_freqs)) # NB! entr is -nlogn
         return res
 
     @lru_cache(maxsize=32000)
@@ -67,7 +61,7 @@ class Scorer():
         return self.XIC('H', child, parents, **self.kwargs)
 
     def score(self, child, parents, update=True):
-        res = self.score_fn(child, parents, **self.kwargs)
+        res = self.score_fn(child, tuple(parents), **self.kwargs)
         if update:
             self.score_table[child] = res
         return res
