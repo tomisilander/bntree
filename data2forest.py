@@ -54,6 +54,14 @@ def save(G, filename):
         for (x,y) in G.edges():
             print(x, y, file=outf)
 
+def load(filename):
+    with open(filename) as inf:
+        G = nx.DiGraph()
+        G.add_nodes_from(range(int(inf.readline())))
+        edges = [tuple(map(int, l.split())) for l in inf]        
+        G.add_edges_from(edges)
+        return G
+
 def score_graph(G, scorer):
     for node in G.nodes():
         parents = list(G.predecessors(node))

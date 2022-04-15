@@ -61,6 +61,7 @@ class Scorer():
         return self.XIC('H', child, parents, **self.kwargs)
 
     def score(self, child, parents, update=True):
+        # return np.random.rand()
         res = self.score_fn(child, tuple(parents), **self.kwargs)
         if update:
             self.score_table[child] = res
