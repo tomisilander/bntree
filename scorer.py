@@ -1,13 +1,15 @@
+from itertools import count
 import numpy as np
 from functools import lru_cache
 from scipy.special import entr
 
+from cycounts import counts1d, counts2d
 
 class Scorer():
 
     def __init__(self, valcounts, data, score='BIC', **kwargs):
         self.valcounts = np.array(valcounts)
-        self.data = np.array(data, dtype=int)
+        self.data = np.array(data, dtype=np.dtype("i"))
         self.rows, self.row_counts = np.unique(self.data, axis=0, return_counts=True)
         self.kwargs = kwargs
         self.score_table = [-np.inf]*len(self.valcounts)
@@ -34,8 +36,15 @@ class Scorer():
         valcs = [self.valcounts[v] for v in family]
         family_rows = self.rows[:,family]
         counts = np.zeros(valcs, dtype=int)
-        for ix, c in zip(map(tuple, family_rows), self.row_counts):
-            counts[ix] += c
+        if len(valcs) == 2:
+            counts2d(family_rows, self.row_counts, counts)
+        elif len(valcs) == 1:
+            counts1d(family_rows, self.row_counts, counts)
+        else:
+            print(family_rows.shape, counts.shape)
+            for ix, c in zip(map(tuple, family_rows), self.row_counts):
+                counts[ix] += c
+
         parent_freqs = counts.sum(axis=-1)                                           
         return counts, parent_freqs
         

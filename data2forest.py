@@ -8,7 +8,7 @@ from vd import fn2valcs
 from scorer import Scorer
 from networkx.algorithms.tree.branchings import maximum_spanning_arborescence
 from multiprocessing import Pool
-
+from common import load, save
 
 def edge_weight(edge, scorer):
     (x,y) = edge
@@ -24,7 +24,6 @@ def gen_edges(n:int):
             yield(n,x)
         else:
             yield (x,y)
-
 
 global_scorer = None
 def edge_weighter(edge):
@@ -47,20 +46,6 @@ def create_graph(n, scorer):
     G = nx.DiGraph()
     G.add_weighted_edges_from(weighted_edges)
     return G
-
-def save(G, filename):
-    with open(filename, 'w') as outf:
-        print(G.number_of_nodes(), file=outf)
-        for (x,y) in G.edges():
-            print(x, y, file=outf)
-
-def load(filename):
-    with open(filename) as inf:
-        G = nx.DiGraph()
-        G.add_nodes_from(range(int(inf.readline())))
-        edges = [tuple(map(int, l.split())) for l in inf]        
-        G.add_edges_from(edges)
-        return G
 
 def score_graph(G, scorer):
     for node in G.nodes():
