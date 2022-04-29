@@ -1,8 +1,11 @@
-from itertools import count
+#!/usr/bin/env python
+
 import numpy as np
 from functools import lru_cache
-from scipy.special import entr
-
+from scipy.special import entr as _nlogn
+from scipy.stats import entropy
+from vd import fn2valcs
+from common import load_bn
 from cycounts import counts1d, counts2d
 
 class Scorer():
@@ -26,7 +29,8 @@ class Scorer():
         
         self.score_fns = {  'BIC': self.BIC,
                             'AIC': self.AIC,
-                            'HIC': self.HIC
+                            'HIC': self.HIC,
+                            'MI' : self.MI
                         }
 
         self.score_fn = self.score_fns[score]
@@ -41,17 +45,23 @@ class Scorer():
         elif len(valcs) == 1:
             counts1d(family_rows, self.row_counts, counts)
         else:
-            print(family_rows.shape, counts.shape)
             for ix, c in zip(map(tuple, family_rows), self.row_counts):
                 counts[ix] += c
-
-        parent_freqs = counts.sum(axis=-1)                                           
-        return counts, parent_freqs
+        return counts
         
     def log_ml(self, child, parents, **kwargs):
-        child_freqs, parent_freqs = self.get_counts(child, parents)
-        res = -np.sum(entr(child_freqs))  # NB! entr is -nlogn  
-        res += np.sum(entr(parent_freqs)) # NB! entr is -nlogn
+        child_freqs = self.get_counts(child, parents)
+        parent_freqs = child_freqs.sum(axis=-1)                                           
+        res = -np.sum(_nlogn(child_freqs))   
+        res += np.sum(_nlogn(parent_freqs))
+        return res
+
+    def mutual_information(self, child, parents, **kwargs):
+        child_freqs = self.get_counts(child, parents)
+        marg_freqs1 = child_freqs.sum(axis=-1) # could be stored                                           
+        marg_freqs2 = child_freqs.sum(axis=0)  # could be stored
+        ind_freqs   = np.outer(marg_freqs1, marg_freqs2)
+        res = entropy(child_freqs.flatten(), qk=ind_freqs.flatten())
         return res
 
     @lru_cache(maxsize=32000)
@@ -69,6 +79,15 @@ class Scorer():
     def HIC(self, child, parents):
         return self.XIC('H', child, parents, **self.kwargs)
 
+    def MI(self, child, parents):
+        nof_parents = len(parents)
+        if nof_parents == 1:
+            return self.mutual_information(child, parents, **self.kwargs)
+        elif nof_parents == 0: 
+            return 0.0
+        else:
+            raise "MI Not implemented"
+
     def score(self, child, parents, update=True):
         # return np.random.rand()
         res = self.score_fn(child, tuple(parents), **self.kwargs)
@@ -82,3 +101,31 @@ class Scorer():
                 self.score_table[child] = self.score_fn(
                     child, parents, **self.kwargs)
         return sum(self.score_table)
+
+def score_graph(G, scorer):
+    for node in G.nodes():
+        parents = list(G.predecessors(node))
+        scorer.score(node, parents)
+    return scorer.total_score()
+
+def score_bn(args):
+    data = np.loadtxt(args.data_filename, dtype=np.int8)
+    valcounts = np.array(fn2valcs(args.vd_filename), dtype=int)
+    scorer = Scorer(valcounts, data, score=args.score)
+    G = load_bn(args.bn_filename)
+    return score_graph(G, scorer)
+
+def add_args(parser):
+    parser.add_argument('vd_filename')
+    parser.add_argument('data_filename')
+    parser.add_argument('bn_filename')
+    scores = 'BIC AIC HIC MI'.split()
+    parser.add_argument('-s', '--score', choices=scores, default='BIC')
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    add_args(parser)
+    args = parser.parse_args()
+    score = score_bn(args)
+    print(score)
