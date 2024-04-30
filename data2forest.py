@@ -30,18 +30,18 @@ global_scorer = None
 def edge_weighter(edge):        
         return (*edge,edge_weight(edge, global_scorer))
 
-def weight_edges(n, scorer, edge_generator, nof_cores=1):
+def weight_edges(scorer, edge_generator, nof_cores=1):
     
     if nof_cores > 1:
         global global_scorer
         global_scorer = scorer
         chunk_len = int(np.ceil(n*n/nof_cores))
         with Pool(nof_cores) as p:
-            weighted_edges = list(p.imap(edge_weighter, edge_generator(n), chunksize=chunk_len))
+            weighted_edges = list(p.imap(edge_weighter, edge_generator, chunksize=chunk_len))
         global_scorer = None
     else:
         weighted_edges = [(*edge,edge_weight(edge, scorer)) 
-                          for edge in edge_generator(n)]
+                          for edge in edge_generator]
 
     return weighted_edges
 
@@ -64,7 +64,7 @@ def direct_it(G):
             # print('DG', DG.edges)
  
     return DG
- 
+     
 def main(args):
     data = np.loadtxt(args.data_filename, dtype=np.int8)
     valcounts = np.array(fn2valcs(args.vd_filename), dtype=int)
@@ -77,7 +77,7 @@ def main(args):
     n = len(valcounts)
     if args.score == 'MI':
         vprint('Computing weighted edges ...')
-        weighted_edges = weight_edges(n, scorer, gen_undirected_edges, args.nof_cores)
+        weighted_edges = weight_edges(scorer, gen_undirected_edges(n), args.nof_cores)
         G = nx.Graph()
         vprint('Adding weighted edges ...')
         G.add_weighted_edges_from(weighted_edges)
@@ -88,7 +88,7 @@ def main(args):
     else:
         n = len(valcounts)
         vprint('Computing weighted edges ...')
-        weighted_edges = weight_edges(n, scorer, gen_directed_edges, args.nof_cores)
+        weighted_edges = weight_edges(scorer, gen_directed_edges(n), args.nof_cores)
         G = nx.DiGraph()
         vprint('Adding weighted edges ...')
         G.add_weighted_edges_from(weighted_edges)
