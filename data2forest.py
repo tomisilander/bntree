@@ -70,29 +70,45 @@ def main(args):
     valcounts = np.array(fn2valcs(args.vd_filename), dtype=int)
     scorer = scr.Scorer(valcounts, data, score=args.score)
 
+    def vprint(msg):
+        if args.verbose:
+            print(msg)
+
+    n = len(valcounts)
     if args.score == 'MI':
+        vprint('Computing weighted edges ...')
         weighted_edges = weight_edges(n, scorer, gen_undirected_edges, args.nof_cores)
         G = nx.Graph()
+        vprint('Adding weighted edges ...')
         G.add_weighted_edges_from(weighted_edges)
+        vprint('Computing MST ...')
         G_mst = nx.maximum_spanning_tree(G, algorithm='prim')
+        vprint('Directing MST ...')
         G_mst = direct_it(G_mst)
     else:
         n = len(valcounts)
+        vprint('Computing weighted edges ...')
         weighted_edges = weight_edges(n, scorer, gen_directed_edges, args.nof_cores)
         G = nx.DiGraph()
+        vprint('Adding weighted edges ...')
         G.add_weighted_edges_from(weighted_edges)
+        vprint('Computing MST ...')
         G_mst = maximum_spanning_arborescence(G)
+        vprint('Directing MST ...')
         G_mst.remove_node(n)
 
+    vprint(f'Saving net to {args.bn_filename}')
     save_bn(G_mst, args.bn_filename) 
 
+    vprint(f'Scoring graph')
     return scr.score_graph(G_mst, scorer)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
     scr.add_args(parser)
-    parser.add_argument('--nof_cores', type=int, default=1)
+    parser.add_argument('--nof-cores', type=int, default=1)
+    parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
     score = main(args)
     print(score)

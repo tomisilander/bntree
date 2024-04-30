@@ -1,3 +1,4 @@
+- study performance warning given by cython
 - could have faster directed max-spanning-tree
 - could use MC always but prune with score
   - add --prune
